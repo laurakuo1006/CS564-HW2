@@ -34,6 +34,13 @@ columnSeparator = "|"
 MONTHS = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06',\
         'Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}
 
+ItemsTable = []
+bidsTable = []
+UsersTable = []
+Item_CategoriesTable = []
+UsersDict = {}
+items_cat_pairs = {}
+
 """
 Returns true if a file ends in .json
 """
@@ -76,10 +83,11 @@ of the necessary SQL tables for your database.
 def parseJson(json_file):
     with open(json_file, 'r') as f:
         items = loads(f.read())['Items'] # creates a Python dictionary of Items for the supplied json file
-        ItemsTable = [] #stores all item info
-        bidsTable = [] #stores all bids for all items
-        UsersDict = {} #stores all users in a dict to get rid of duplicates later
-        Item_CategoriesTable = []
+        global ItemsTable #stores all item info
+        global bidsTable #stores all bids for all items
+        global UsersDict #stores all users in a dict to get rid of duplicates later
+        global Item_CategoriesTable
+        global UsersTable
         
         for item in items:
             ItemsTable.append(gettItemString(item))
@@ -87,23 +95,20 @@ def parseJson(json_file):
             getUsers(item, UsersDict)
             Item_CategoriesTable.extend(getItem_CategoriesString(item))
             
-        UsersTable = getUsersString(UsersDict)
-        
-        return ItemsTable, bidsTable, UsersTable, Item_CategoriesTable
 """
 Item Schema: Item(ItemID, Name, Currently, First_Bid, Buy_Price, Started, Ends, UserID, Description)
 Parses item from json format into a list of strings to be added to the Item load file
 """
 def gettItemString(item):
     ItemID = str(item['ItemID'])
-    Name = str(item['Name']).replace('"', '""')
+    Name = str(item['Name']).replace('"', '')
     Currently = transformDollar(item['Currently'])
     First_Bid = transformDollar(item['First_Bid'])
     Buy_Price = transformDollar(item['Buy_Price']) if 'Buy_Price' in item else 'NULL'
     Started = transformDttm(item['Started'])
     Ends = transformDttm(item['Ends'])
-    UserID = str(item['Seller']['UserID']).replace('"', '""')
-    Description = str(item['Description']).replace('"', '""')
+    UserID = str(item['Seller']['UserID']).replace('"', '')
+    Description = str(item['Description']).replace('"', '')
     
     itemString = ItemID + "|" + Name + "|" + Currently + "|" + First_Bid + "|" + Buy_Price + "|" + Started + "|" + Ends + "|" + UserID + "|" + Description + "\n"
     
@@ -118,7 +123,7 @@ def getBidsString(item):
     bids = []
     if item['Bids'] != None:
         for bid in item['Bids']:
-            UserID = bid['Bid']['Bidder']['UserID'].replace('"', '""')
+            UserID = bid['Bid']['Bidder']['UserID'].replace('"', '')
             Time = transformDttm(bid['Bid']['Time'])
             Amount = transformDollar(bid['Bid']['Amount'])
             bidString = ItemID + "|" + UserID + "|" + Time + "|" + Amount + "\n"
@@ -132,10 +137,10 @@ Put seller and bidder information in a dictionary to handle duplicate users
 """
 def getUsers(item, UsersDict):
     #get user info of seller
-    sellerID = str(item['Seller']['UserID']).replace('"', '""')
-    sellerCountry = str(item['Country']).replace('"', '""') if 'Country' in item.keys() and item['Country'] != None else 'NULL'
+    sellerID = str(item['Seller']['UserID']).replace('"', '')
+    sellerCountry = str(item['Country']).replace('"', '') if 'Country' in item.keys() and item['Country'] != None else 'NULL'
     sellerRating = item['Seller']['Rating'] if 'Rating' in item.keys() and item['Rating'] != None else 'NULL'
-    sellerLocation = str(item['Location']).replace('"', '""') if 'Location' in item.keys() and item['Location'] != None else 'NULL'
+    sellerLocation = "\"" + str(item['Location']).replace('"', '') + "\"" if 'Location' in item.keys() and item['Location'] != None else 'NULL'
     
     #avoid duplicates
     if sellerID in UsersDict:
@@ -148,10 +153,10 @@ def getUsers(item, UsersDict):
     #get user info for bidders
     if item['Bids'] != None:
         for bid in item['Bids']:
-            bidderID = str(bid['Bid']['Bidder']['UserID']).replace('"', '""') 
-            bidderCountry = str(bid['Bid']['Bidder']['Country']).replace('"', '""') if 'Country' in bid['Bid']['Bidder'].keys() and bid['Bid']['Bidder']['Country'] != None else 'NULL'
+            bidderID = str(bid['Bid']['Bidder']['UserID']).replace('"', '') 
+            bidderCountry = str(bid['Bid']['Bidder']['Country']).replace('"', '') if 'Country' in bid['Bid']['Bidder'].keys() and bid['Bid']['Bidder']['Country'] != None else 'NULL'
             bidderRating = bid['Bid']['Bidder']['Rating'] if 'Rating' in bid['Bid']['Bidder'].keys() and bid['Bid']['Bidder']['Rating'] != None else 'NULL'
-            bidderLocation = str(bid['Bid']['Bidder']['Location']).replace('"', '""') if 'Location' in bid['Bid']['Bidder'].keys() and bid['Bid']['Bidder']['Location'] != None else 'NULL'
+            bidderLocation = "\"" + str(bid['Bid']['Bidder']['Location']).replace('"', '') + "\"" if 'Location' in bid['Bid']['Bidder'].keys() and bid['Bid']['Bidder']['Location'] != None else 'NULL'
             
             if bidderID in UsersDict:
                 UsersDict[bidderID]['Country'] = bidderCountry
@@ -164,7 +169,7 @@ def getUsers(item, UsersDict):
 Given dictionary of unique, updated user info, convert to list of strings for load file
 """
 def getUsersString(UsersDict):
-    UsersTable = []
+    global UsersTable
     
     for UserID, info in UsersDict.items():
         userString = UserID + "|" + info['Country'] + "|" + info['Rating'] + "|" + info['Location'] +"\n"
@@ -177,12 +182,17 @@ Item_Categories Schema: Item_Categories(ItemID, Category)
 Parses item from json format into list of strings to be added to the Item_Categories load file
 """
 def getItem_CategoriesString(item):
+    global items_cat_pairs
     ItemID = str(item['ItemID'])
     item_cat = []
-    for cat in item['Category']:
-        catString = ItemID + "|" + str(cat).replace('"', '""') + "\n"
-        item_cat.append(catString)
-        
+    if ItemID not in items_cat_pairs.keys():
+        items_cat_pairs[ItemID] = []
+        for cat in item['Category']:
+            if cat not in items_cat_pairs[ItemID]:
+                catString = ItemID + "|" + str(cat).replace('"', '') + "\n"
+                item_cat.append(catString)
+                items_cat_pairs[ItemID].append(cat)
+            
     return item_cat
     
 """
@@ -194,10 +204,11 @@ def main(argv):
         print >> sys.stderr, 'Usage: python skeleton_json_parser.py <path to json files>'
         sys.exit(1)
         
-    ItemsTable = []
-    bidsTable = []
-    UsersTable = []
-    Item_CategoriesTable = []
+    global ItemsTable
+    global bidsTable
+    global UsersTable
+    global Item_CategoriesTable 
+    global UsersDict
     
     # loops over all .json files in the argument
     # NOTE: items-*.json doesn't work on my laptop yet, according to instructor's piazza post 
@@ -205,17 +216,15 @@ def main(argv):
     # waiting for a response under this post: https://piazza.com/class/m66rboeq3bk6po/post/81
     for f in argv[1:]:
         if isJson(f):
-            Items, bids, Users, Item_Categories = parseJson(f)
-            ItemsTable.extend(Items)
-            bidsTable.extend(bids)
-            UsersTable.extend(Users)
-            Item_CategoriesTable.extend(Item_Categories)
+            parseJson(f)
             print ("Success parsing " + f)
+            
+    UsersTable = getUsersString(UsersDict)
             
     with open('Item.dat', 'w') as f:
         f.writelines(ItemsTable)
         
-    with open('Bids.dat', 'w') as f:
+    with open('bids.dat', 'w') as f:
         f.writelines(bidsTable)
         
     with open('User.dat', 'w') as f:

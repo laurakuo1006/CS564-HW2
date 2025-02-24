@@ -1,0 +1,10 @@
+.separator "|"
+.import User.dat User
+UPDATE User SET Country = NULL WHERE Country = 'NULL';
+UPDATE User SET Rating = NULL WHERE Rating = 'NULL';
+UPDATE User SET Location = NULL WHERE Location = 'NULL';
+.import Item.dat Item
+UPDATE Item SET Buy_Price = NULL WHERE Buy_Price = 'NULL';
+.import bids.dat bids
+.import Item_Categories.dat Item_Categories
+
