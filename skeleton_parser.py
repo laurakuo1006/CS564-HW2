@@ -139,7 +139,7 @@ def getUsers(item, UsersDict):
     #get user info of seller
     sellerID = str(item['Seller']['UserID']).replace('"', '')
     sellerCountry = str(item['Country']).replace('"', '') if 'Country' in item.keys() and item['Country'] != None else 'NULL'
-    sellerRating = item['Seller']['Rating'] if 'Rating' in item.keys() and item['Rating'] != None else 'NULL'
+    sellerRating = item['Seller']['Rating'] if 'Rating' in item['Seller'].keys() and item['Seller']['Rating'] != None else 'NULL'
     sellerLocation = "\"" + str(item['Location']).replace('"', '') + "\"" if 'Location' in item.keys() and item['Location'] != None else 'NULL'
     
     #avoid duplicates
