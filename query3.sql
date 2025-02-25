@@ -1,0 +1,2 @@
+SELECT COUNT(*) 
+FROM (SELECT ItemID FROM Item_Categories GROUP BY ItemID HAVING COUNT(Category) = 4);
